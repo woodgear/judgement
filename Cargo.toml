@@ -1,0 +1,10 @@
+[package]
+name = "judgement"
+version = "0.1.0"
+authors = ["wucong <1875486458@qq.com>"]
+
+[dependencies]
+colored = "1.6.0"
+walkdir = "2.1.4"
+subprocess = "0.1.12"
+derive-new = "0.5.4"

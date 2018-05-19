@@ -1,6 +1,5 @@
 use std::path::PathBuf;
 use std::fs;
-use std::process::Command;
 use colored::*;
 use walkdir::WalkDir;
 use std::ffi::OsStr;
@@ -66,11 +65,11 @@ impl JudegMent {
 							examiner: er,
 						})
 					}
-					(None, Some(ee)) => {
+					(None, Some(_)) => {
 						miss_examiner.push(tt.paper);
 						None
 					}
-					(Some(er), None) => {
+					(Some(_), None) => {
 						miss_examinee.push(tt.paper);
 						None
 					}
@@ -260,7 +259,6 @@ impl Score for OAExaminer {
 impl Score for QAExaminer {
 	fn score(&self, e: &Box<Examination>) -> Result<(), String> {
 		let file = File::open(self.path.clone()).unwrap();
-		let file1 = File::open(self.path.clone()).unwrap();
 
 		let mut lines = BufReader::new(file).lines();
 		match (lines.next(), lines.next()) {
@@ -287,11 +285,6 @@ struct QAExaminer {
 }
 
 
-struct Tester {
-	path: PathBuf
-}
-
-
 #[cfg(test)]
 mod tests {
 	use super::*;
@@ -300,7 +293,6 @@ mod tests {
 	#[test]
 	fn test_get_all_handle() {
 		let current_dir = current_dir().unwrap().join("mock_data");
-		let location = current_dir.clone();
 		let answer_location = current_dir.join(".answer");
 
 		let judge = JudegMent::new(current_dir, answer_location);
@@ -324,7 +316,6 @@ mod tests {
 	#[test]
 	fn test_judgement() {
 		let current_dir = current_dir().unwrap().join("mock_data");
-		let location = current_dir.clone();
 		let answer_location = current_dir.join(".answer");
 
 		let judge = JudegMent::new(current_dir, answer_location);

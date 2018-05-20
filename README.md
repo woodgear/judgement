@@ -1,8 +1,10 @@
+[![Build Status](https://travis-ci.com/woodgear/judgement.svg?branch=master)](https://travis-ci.com/woodgear/judgement)
+
 # HOW TO USE
 [![asciicast](https://asciinema.org/a/0zNx8DjzVXebxWxA18ZE1tst4.png)](https://asciinema.org/a/0zNx8DjzVXebxWxA18ZE1tst4)
 # HOW IT WORK
 ## term
-### paper 
+### paper
 a file end with .md which describe how to answer it
 ### paper dir 
 a folder which has a lot of paper.usually is the folder which you download (or git clone)

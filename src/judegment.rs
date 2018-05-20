@@ -43,18 +43,43 @@ impl JudegMent {
 			examiner,
 		}
 	}
-
-	pub fn start(&self) {
+	pub fn start_on_dir(&self, cwd: PathBuf) {
 		let all_test: Vec<TempTestHandle> = self.get_all_tester();
 		let all_count = all_test.len();
 
 		let mut miss_examinee: Vec<Paper> = vec![];
 		let mut miss_examiner: Vec<Paper> = vec![];
-		let mut success_count = 0;
-		let mut fail_count = 0;
 
+		let avaiable_test = self.get_avaiable_test(all_test, &mut miss_examinee, &mut miss_examiner);
+		let miss_examiner_count = miss_examiner.len();
 
-		let avaiable_test: Vec<TestHandler> = all_test
+		let target_test = self.get_target_test(avaiable_test, cwd);
+		let target_test_count = target_test.len();
+
+		let success_count = self.start_test(target_test);
+		let fail_count = target_test_count - success_count;
+		if success_count == all_count {
+			println!("{}", format!("good job you has finish all test").blue());
+		}
+		println!("{}",
+		         format!("all_test:{} unfinished:{} success:{} fail:{} miss_examiner:{}",
+		                 all_count,
+		                 all_count - success_count,
+		                 success_count,
+		                 fail_count,
+		                 miss_examiner_count,
+		         ).yellow()
+		);
+	}
+	fn get_target_test(&self, list: Vec<TestHandler>, target_dir: PathBuf) -> Vec<TestHandler> {
+		list.into_iter()
+			.filter(|t| {
+				t.paper.path.starts_with(&target_dir)
+			})
+			.collect()
+	}
+	fn get_avaiable_test(&self, list: Vec<TempTestHandle>, miss_examinee: &mut Vec<Paper>, miss_examiner: &mut Vec<Paper>) -> Vec<TestHandler> {
+		let avaiable_test: Vec<TestHandler> = list
 			.into_iter()
 			.filter_map(|tt| {
 				match (tt.examiner, tt.examinee) {
@@ -81,50 +106,42 @@ impl JudegMent {
 				}
 			})
 			.collect();
+		avaiable_test
+	}
 
-		let avaiable_test_count = avaiable_test.len();
-
-		let _: Vec<()> = avaiable_test
+	fn start_test(&self, list: Vec<TestHandler>) -> usize {
+		let success: Vec<()> = list
 			.into_iter()
 			.filter_map(|t| {
 				let paper = t.paper.clone();
+				let name: String = paper.path.strip_prefix(&self.examinee)
+					.map(|p| p.to_string_lossy().to_string())
+					.unwrap_or(paper.name);
+
 				match t.start_test() {
 					Ok(()) => {
-						success_count += 1;
-						println!("{}", format!("success: {} pass", paper.name.clone()).green());
+						println!("{}", format!("success: {}", name).green());
 						Some(())
 					}
 					Err(e) => {
-						fail_count += 1;
-						println!("{}", format!("fail: {} fail {}", paper.name.clone(), e).red());
+						println!("{}", format!("fail: {} {}", name, e).red());
 						None
 					}
 				}
 			})
 			.collect();
-
-		if success_count == all_count {
-			println!("{}", format!("good job you has finish all test").yellow());
-		}
-		println!("{}",
-		         format!("all_test:{} unfinished:{} miss_examiner:{} miss_examinee:{} success:{} fail:{}",
-		                 all_count,
-		                 all_count - avaiable_test_count,
-		                 miss_examiner.len(),
-		                 miss_examinee.len(),
-		                 success_count,
-		                 fail_count).yellow()
-		);
+		return success.len();
 	}
+
 
 	fn get_all_tester(&self) -> Vec<TempTestHandle> {
 		let res: Vec<TempTestHandle> = WalkDir::new(self.examinee.clone())
 			.into_iter()
 			.filter_map(|e| e.ok())
 			.filter(|p| !p.path().is_dir())
+			.filter(|p| !p.path().starts_with("."))
 			.filter(|p| p.path().file_stem() != Some(OsStr::new("README")))
 			.filter(|p| p.path().extension() == Some(OsStr::new("md")))
-			.filter(|p| !p.path().starts_with("."))
 			.map(|p| {
 				p.path().to_path_buf()
 			})
@@ -132,11 +149,12 @@ impl JudegMent {
 				//TODO: a lot of unwrap fix it
 				//TODO: this find examiner is n^2
 				let name = p.file_stem().unwrap().to_str().unwrap().to_string();
-				let except_examinee_dir = p.parent().unwrap().to_path_buf();
-				let subfix_dir = except_examinee_dir.strip_prefix(&self.examinee).unwrap();
-				let except_examiner_dir = self.examiner.clone().join(subfix_dir);
-				let examiner = self.find_examiner(&except_examiner_dir, &name);
-				let examinee = self.find_examinee(&except_examinee_dir, &name);
+				let expect_examinee_dir = p.parent().unwrap().to_path_buf();
+				let subfix_dir = expect_examinee_dir.strip_prefix(&self.examinee).unwrap();
+				let expect_examiner_dir = self.examiner.clone().join(subfix_dir);
+				let examiner = self.find_examiner(&expect_examiner_dir, &name);
+				let examinee = self.find_examinee(&expect_examinee_dir, &name);
+
 				TempTestHandle {
 					paper: Paper::new(name, p),
 					examinee,
@@ -293,23 +311,23 @@ mod tests {
 	#[test]
 	fn test_get_all_handle() {
 		let current_dir = current_dir().unwrap().join("mock_data");
-		let answer_location = current_dir.join(".answer");
+		let answer_location = current_dir.join(".mock_data.answer");
 
 		let judge = JudegMent::new(current_dir, answer_location);
 		let tests = judge.get_all_tester();
-		assert_eq!(tests.len(), 2);
-
-		for t in tests {
-			println!("{:?}", t.paper);
-			assert!(t.examiner.is_some());
-			assert!(t.examinee.is_some());
-		}
+		assert_eq!(tests.len(), 6);
+		let mut me = vec![];
+		let mut mr = vec![];
+		let tests = judge.get_avaiable_test(tests, &mut me, &mut mr);
+		assert_eq!(tests.len(), 0);
+		assert_eq!(me.len(), 6);
+		assert_eq!(mr.len(), 4);
 	}
 
 	#[test]
 	fn test_find_examiner() {
 		let judge = JudegMent::new(PathBuf::new(), PathBuf::new());
-		let res = judge.find_examiner(&current_dir().unwrap().join("mock_data/.answer/a-1"), &"1".into());
+		let res = judge.find_examiner(&current_dir().unwrap().join("mock_data/.mock_data.answer/a-1"), &"1".into());
 		assert!(res.is_some())
 	}
 
@@ -318,7 +336,7 @@ mod tests {
 		let current_dir = current_dir().unwrap().join("mock_data");
 		let answer_location = current_dir.join(".answer");
 
-		let judge = JudegMent::new(current_dir, answer_location);
-		judge.start();
+		let judge = JudegMent::new(current_dir.clone(), answer_location);
+		judge.start_on_dir(current_dir);
 	}
 }
